@@ -113,3 +113,195 @@ q.z = 3;
 var s = q.toString(); // toString继承自Object.prototype
 q.x + q.y // => 3 : x和y分别继承自o和p
 
+var unitcircle = { r:1 }; // 一个用来继承的对象
+var c;
+c = inherit(unitcircle); // c继承属性r
+c.x = 1; c.y = 1; // c定义两个属性
+c.r = 2; // c覆盖继承来的属性
+unitcircle.r; // => 1, 原型对象没有修改
+
+
+/*
+* 6.2.3 属性访问错误
+* */
+book.subtitle; // => undefined:属性不存在
+
+// 抛出一个类型错误异常, undefined没有length属性
+var len = book.subtitle.length;
+
+//两个可避免出错的方法:
+//1.一种冗余但很易懂的方法
+var len = undefined;
+if (book) {
+    if (book.subtitle) len = book.subtitle.length;
+}
+
+//2.一种更简练的常用方法, 获取subtitle的length属性或undefined
+var len1 = book && book.subtitle && book.subtitle.length
+
+
+/*
+* 6.3删除属性
+* */
+delete book.author; // book不再有属性author
+delete book["main title"]; // book也不再有属性"main title"
+//delete运算符只能删除自由属性,不能删除继承属性(要删除继承属性必须从定义这个属性的原型对象上删除它, 而且这会影响到所有继承自这个原型的对象)
+
+o = { x:1 }; // o有一个属性x, 并继承属性toString
+delete o.x; // 删除x, 返回true
+delete o.x; // 什么都不做(x已经不存在了), 返回true
+delete o.toString; // 什么也不做(toString是继承来的), 返回true
+delete 1; // 无意义, 返回true
+
+delete Object.prototype; // 不能删除,属性是不可配置的
+var x=1; // 声明一个全局变量
+delete this.x; // 不能删除这个属性
+function f() {}; // 声明一个全局函数
+delete this.f; // 也不能删除全局函数
+
+this.x = 1; // 创建一个可配置的全局属性 (没有用var)
+delete x; // 将它删除,在非严格模式下
+delete x; // 在非严格模式下报语法错误
+delete this.x // 正常工作
+
+/*
+* 检测属性
+* */
+
+//in运算符的左侧是属性名(字符串), 右侧是对象. 如果对象的自有属性或继承属性中包含这个属性则返回true
+var o = { x:1 };
+"x" in o; // true, "x"是o的属性
+"y" in o; // false, "y"不是o的属性
+"toString" in o; //true, o继承toString属性
+
+var o1 = { x: 1 };
+o1.hasOwnProperty("x"); // true: o有一个自有属性x
+o1.hasOwnProperty("y"); // false: o中不存在属性y
+o1.hasOwnProperty("toString") // false: toString是继承属性
+
+//propertyIsEnumerable()是hasOwnProperty()的增强版, 只有检测到是自有属性且这个属性的可枚举性(enumerable attribute)为true时它才返回true.
+//某些内置属性是不可枚举的.
+//通常由JavaScript代码创建的属性都是可枚举的, 除非在ES5中使用一个特殊的方法来改变属性的可枚举性, 随后会提到:
+
+var o2 = inherit({ y:2 });
+o2.x = 1;
+o2.propertyIsEnumerable("x"); // true, o有一个可枚举的自由属性x
+o2.propertyIsEnumerable("y"); // false, y是继承来的
+Object.prototype.propertyIsEnumerable("toString"); // false, 不可枚举
+
+var o3 = { x:1 };
+o.x !== undefined; // true: o中有属性x
+o.y !== undefined; // false: o中没有属性y
+o.toString !== undefined; // true: o继承了toString属性
+
+//然而有一种场景只能使用in运算符而不能使用上述属性访问的方式. in可以区分不存在的属性和存在但值为undefined的属性. 例如下面的代码:
+
+var o4 = { x:undefined }; // 属性被显式复制为undefined
+o4.x !== undefined; // false, 属性存在, 但值为undefined
+o4.y !== undefined; // false, 属性不存在
+"x" in o4; // true, 属性存在
+"y" in o4; // false, 属性不存在
+delete o4.x; // 删除了属性x
+"x" in o4; // false, 属性不再存在
+
+
+//注意上述代码中使用的是 "!==" 而不 "!=". "!=="可以区分undefined和null.有时则不必作这种区分:
+// 如果o中有属性x, 且x的值不是null或undefined, o.x乘以2.
+if (o.x != null) o.x *= 2;
+// 如果o中含有属性x, 且x的值不能转换为false, o.x乘以2.
+// 如果x是undefined, null, false, " ", 0或NaN, 则它保持不变
+if (o.x) o.x *= 2;
+
+/*
+* 枚举属性
+* */
+//通常使用for/in循环遍历, ES5提供了两个更好用的代替方案.
+
+var o5 = { x:1, y:2, z:3 }; // 3个可枚举的自有属性
+o5.propertyIsEnumerable("toSting"); // => false, 不可枚举
+for (p in o5) //遍历属性
+console(p); // 输出x,y和z, 不会速出toString
+
+for (p in o5) {
+    if (!o5.hasOwnProperty(p)) continue; // 跳过继承的属性
+}
+for (p in o5) {
+    if (typeof o[p] === "function") continue; // 跳过方法
+}
+
+
+/*
+* 把p中的可枚举属性复制到o中,并返回o
+* 如果o和p中含有同名属性, 则覆盖o中的属性
+* 这个函数并不处理getter和setter以及复制属性
+* */
+function extend(p) {
+    for (prop in p) { // 遍历p中的所有属性
+        o[prop] = p[prop]; // 将属性添加至o中
+    }
+    return o;
+}
+
+/*
+* 将p中的可枚举属性复制到o中, 并返回o
+* 如果o和p中有同名的属性, o中的属性将不受到影响
+* 这个函数并不处理getter和setter以及复制属性
+* */
+
+function merge(o, p) {
+    for (prop in p) {
+        if (o.hasOwnProperty[prop]) continue; // 过滤掉已经在o中存在的属性
+        o[prop] = p[prop]; // 将属性添加至o中
+    }
+    return o;
+}
+
+/*
+* 如果o中的属性在p中没有同名的属性, 则从o中删除这个属性, 返回o
+* */
+
+function restrict(o, p) {
+    for (prop in o) {
+        if (! (prop in p)) delete o[prop]; // 如果在p中不存在, 则删除之
+    }
+    return o;
+}
+
+/*
+* 如果o中的属性在p中存在同名属性, 则从o中删除这个属性, 返回o
+* */
+function subtract(o, p) {
+    for (prop in p) {
+        delete o[p]; // 从o中删除一个不存在的属性不会报错
+    }
+    return o;
+}
+
+/*
+* 返回一个新对象, 这个对象同时拥有o的属性和p的属性.
+* 如果o和p中有重名属性, 则使用p中的属性值
+* */
+function union(o, p) {
+    return extend(extend({}, o), p);
+}
+
+/*
+* 返回一个新对象, 这个对象拥有同时在o和p中出现的属性
+* 很像求o和p的交集. 但p中的属性值被忽略
+* */
+function intersection(o, p) { return restrict(extend({}, o), p); }
+
+
+/*
+* 返回一个数组, 这个数组包含的是o中可枚举的自有属性的名字
+* */
+function keys(o) {
+    if (typeof o !== "object") throw TypeError(); // 参数必须是对象
+    var result = []; //将要返回的数组
+    for (var prop in o) {
+        if (o.hasOwnProperty(prop)) { // 判断是否是自有属性
+            result.push(prop); // 将属性名添加至数组
+        }
+    }
+    return result;
+}
