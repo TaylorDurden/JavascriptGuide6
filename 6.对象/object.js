@@ -305,3 +305,94 @@ function keys(o) {
     }
     return result;
 }
+
+/*
+* 6.6 属性getter和setter
+* */
+var p1 = {
+    //x和y是普通的可读写的数据属性
+    x: 1.0,
+    y: 1.0,
+
+    //r是可读写的存取器属性，它有getter和setter。
+    //函数体结束后不要忘记带上逗号
+    get r() { return Math.sqrt(this.x*this.x + this.y*this.y); },
+    set r(newvalue) {
+        var oldvalue = Math.sqrt(this.x*this.x + this.y*this.y);
+        var ratio = newvalue / oldvalue;
+        this.x *= ratio;
+        this.y *= ratio;
+    },
+    get theta() { return Math.atan2(this.y, this.x) }
+}
+
+var qq = inherit(p1); // 创建一个继承getter和setter的新对象
+qq.y = 1, qq.x = 1; // 给qq添加两个属性
+console.log(qq.r); // 可以使用继承的存取器属性
+console.log(qq.theta);
+
+var serialnum = {
+    // 这个数据属性包含下一个序列号
+    // $符号暗示这个属性是一个私有属性
+    $n: 0,
+
+    // 返回当前值， 然后自增
+    get next() { return this.$n++; },
+
+    // 给n设置新的值， 但只有当它比当前值大时才设置成功
+    set next(n) {
+        if (n >= this.$n) this.$n++;
+        else throw "序列号的值不能比当前值小"
+    }
+};
+
+// 这个对象有一个可以返回随机数的存取器属性
+// 例如，表达式“random.octet”产生一个随机数
+// 每次产生的随机数都在0-255之间
+var random = {
+    get octet() { return Math.floor(Math.random()*256); },
+    get uint16() { return Math.floor(Math.random()*65536); },
+    get int16() { return Math.floor(Math.random()*65536) - 32768; }
+};
+
+/*
+* 6.7 属性的特性
+* */
+
+//1. 可以通过和谐API给原型对象添加方法，并将它们设置成不可枚举的，这让它们看起来更像内置方法。
+//2. 可以通过这些API给对象定义不能修改或删除的属性，借此‘锁定’这个对象。
+
+// 通过调用Object.getOwnPropertyDescriptor()可以获得某个对象自有特定属性的属性描述符：
+
+    // 返回 { value:1, writable:true, enumerable: true, configurable:true }
+    Object.getOwnPropertyDescriptor({x:1}, "x");
+
+    // 查询上下文中定义的random对象的octet属性
+    // 返回 { get: /**func/, set:undefined, enumerable:true, configurable: true 0}
+    Object.getOwnPropertyDescriptor(random, "octet")
+
+    // 对于继承属性和不存在的属性， 返回undefined
+    Object.getOwnPropertyDescriptor({}, "x")   // undefined, 没有这个属性
+    Object.getOwnPropertyDescriptor({}, "toString")   // undefined, 继承属性
+
+// 要想设置属性的特性，或者想让新建属性具有某种特性，则需要调用Object.defineProperty(),传入要修改的对象、要创建或修改的属性的名称以及属性描述符对象：
+    var ooo = {};
+    // 添加一个不可枚举的数据属性x, 并赋值为1
+    Object.defineProperty(ooo, "x", {value:1, writable:true, enumerable: false, configurable:true});
+
+    // 属性是存在的，但不可枚举
+    ooo.x; // => 1
+    Object.keys(ooo); // => []
+
+    // 现在对属性x做修改，让它变为只读
+    Object.defineProperty(ooo, "x", { writable: false });
+
+    // 试图更改这个属性的值
+    ooo.x = 2; // 操作失败但不报错，而在严格模式下抛出类型错误异常
+    ooo.x; // =》 1
+
+    // 属性依然是可配置的，因此可以通过这种方式对它进行修改：
+    Object.defineProperty(ooo, "x", { value:2 });
+    ooo.x; // => 2
+
+    // 现在将x从
