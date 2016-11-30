@@ -394,5 +394,6 @@ var random = {
     // 属性依然是可配置的，因此可以通过这种方式对它进行修改：
     Object.defineProperty(ooo, "x", { value:2 });
     ooo.x; // => 2
-
+  
     // 现在将x从
+    
